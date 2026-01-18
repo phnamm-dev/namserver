@@ -58,6 +58,35 @@
         .hidden { display: none; }
         .loading { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Popup thông báo */
+        .popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        .popup-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 350px;
+            margin: 20px;
+            animation: slideUp 0.3s forwards;
+        }
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes slideUp { 
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -86,15 +115,14 @@
     </div>
 
     <script>
-        // CẤU HÌNH - QUAN TRỌNG!
+        // CẤU HÌNH - ĐIỀU CHỈNH THEO FILE IPA THẬT CỦA BẠN
         const CONFIG = {
-            // URL file IPA - DÙNG RAW.GITHACK.COM TỐT HƠN
+            // DÙNG GITHACK.COM CHO TỐT HƠN
             ipaUrl: 'https://rawcdn.githack.com/phnamm-dev/server-resources/refs/heads/main/file/namserver-ESign-signed.ipa',
             
-            // BUNDLE ID ĐÚNG từ file IPA
-            bundleId: 'nya.asami.ksign',
+            // BUNDLE ID - LẤY TỪ FILE IPA THẬT
+            bundleId: 'nya.asami.ksign', // Nếu đây là bundle ID thật
             
-            // Tên hiển thị
             appName: 'ESign',
             appVersion: '1.0'
         };
@@ -105,28 +133,75 @@
         const installBtn = document.getElementById('installBtn');
         const statusText = document.getElementById('statusText');
         
+        // ========== HÀM KIỂM TRA THIẾT BỊ CHÍNH XÁC ==========
+        function isIOSDevice() {
+            const ua = navigator.userAgent.toLowerCase();
+            const platform = navigator.platform;
+            
+            // Kiểm tra iPad (kể cả iPad Pro với macOS-like user agent)
+            const isIPad = /ipad/.test(ua) || 
+                          (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            // Kiểm tra iPhone/iPod
+            const isIPhone = /iphone/.test(ua);
+            const isIPod = /ipod/.test(ua);
+            
+            // Kiểm tra thông qua vendor
+            const isAppleDevice = /apple/.test(navigator.vendor.toLowerCase());
+            
+            console.log('User Agent:', navigator.userAgent);
+            console.log('Platform:', platform);
+            console.log('Max Touch Points:', navigator.maxTouchPoints);
+            console.log('Vendor:', navigator.vendor);
+            console.log('isIPad:', isIPad);
+            console.log('isIPhone:', isIPhone);
+            console.log('isIPod:', isIPod);
+            
+            return isIPad || isIPhone || isIPod;
+        }
+        
+        // Hiển thị popup thông báo
+        function showPopup(message, isError = false) {
+            const popup = document.createElement('div');
+            popup.className = 'popup';
+            popup.innerHTML = `
+                <div class="popup-content">
+                    <h3>${isError ? '⚠️ Thông báo' : 'ℹ️ Thông tin'}</h3>
+                    <p style="margin: 20px 0; color: #333;">${message}</p>
+                    <button class="btn" onclick="this.closest('.popup').remove()">Đã hiểu</button>
+                </div>
+            `;
+            document.body.appendChild(popup);
+            
+            // Tự động đóng sau 5 giây nếu không phải lỗi
+            if (!isError) {
+                setTimeout(() => popup.remove(), 5000);
+            }
+        }
+
         // Cập nhật trạng thái
         function updateStatus(text, step = 0) {
             statusText.textContent = text;
             
-            // Cập nhật các bước
             const steps = ['step1', 'step2', 'step3'];
             steps.forEach((id, index) => {
                 const el = document.getElementById(id);
-                if (index < step) {
-                    el.innerHTML = '✓ ' + el.textContent.replace('✓ ', '');
-                    el.style.color = '#007AFF';
-                } else if (index === step) {
-                    el.innerHTML = '⏳ ' + el.textContent.replace(/[✓⏳] /, '');
-                    el.style.color = '#1d1d1f';
-                } else {
-                    el.innerHTML = el.textContent.replace(/[✓⏳] /, '');
-                    el.style.color = '#86868b';
+                if (el) {
+                    if (index < step) {
+                        el.innerHTML = '✓ ' + el.textContent.replace(/[✓⏳] /g, '');
+                        el.style.color = '#007AFF';
+                    } else if (index === step) {
+                        el.innerHTML = '⏳ ' + el.textContent.replace(/[✓⏳] /g, '');
+                        el.style.color = '#1d1d1f';
+                    } else {
+                        el.innerHTML = el.textContent.replace(/[✓⏳] /g, '');
+                        el.style.color = '#86868b';
+                    }
                 }
             });
         }
 
-        // Tạo manifest.plist đơn giản
+        // Tạo manifest.plist
         function createManifestPlist() {
             return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -143,25 +218,17 @@
                     <key>url</key>
                     <string>${CONFIG.ipaUrl}</string>
                 </dict>
-                <dict>
-                    <key>kind</key>
-                    <string>display-image</string>
-                    <key>url</key>
-                    <string>https://via.placeholder.com/120x120/007AFF/FFFFFF?text=ES</string>
-                </dict>
             </array>
             <key>metadata</key>
             <dict>
                 <key>bundle-identifier</key>
                 <string>${CONFIG.bundleId}</string>
                 <key>bundle-version</key>
-                <string>${CONFIG.appVersion}</string>
+                    <string>${CONFIG.appVersion}</string>
                 <key>kind</key>
                 <string>software</string>
                 <key>title</key>
                 <string>${CONFIG.appName}</string>
-                <key>subtitle</key>
-                <string>Signed App</string>
             </dict>
         </dict>
     </array>
@@ -171,81 +238,138 @@
 
         // Kích hoạt cài đặt
         async function startInstallation() {
+            console.log('Bắt đầu cài đặt...');
+            
+            // Kiểm tra thiết bị CHÍNH XÁC
+            const isIOS = isIOSDevice();
+            console.log('Kết quả kiểm tra iOS:', isIOS);
+            
+            if (!isIOS) {
+                showPopup(
+                    '⚠️ Vui lòng mở trang này trên iPhone hoặc iPad để cài đặt ứng dụng.\n\n' +
+                    'Nếu bạn đang dùng iPad mà vẫn thấy thông báo này:\n' +
+                    '1. Đảm bảo đang dùng Safari\n' +
+                    '2. Thử tải lại trang\n' +
+                    '3. Thử mở trong trình duyệt ẩn danh',
+                    true
+                );
+                return;
+            }
+            
             // Chuyển sang màn hình loading
             mainContainer.classList.add('hidden');
             loadingContainer.classList.remove('hidden');
             
             updateStatus('Đang kiểm tra thiết bị...', 0);
             
-            // Kiểm tra iOS
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (!isIOS) {
-                updateStatus('Vui lòng mở trên iPhone/iPad', 0);
-                setTimeout(() => {
-                    alert('Vui lòng mở trang này trên iPhone hoặc iPad để cài đặt.');
-                    window.location.href = 'https://support.apple.com/guide/iphone/install-apps-iph4d8d2a2d0/ios';
-                }, 2000);
-                return;
-            }
-            
             // Bước 1: Tạo manifest
             updateStatus('Đang tạo gói cài đặt...', 1);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 800));
             
-            // Bước 2: Tạo manifest URL
-            const manifestContent = createManifestPlist();
-            const manifestBlob = new Blob([manifestContent], { type: 'application/x-plist' });
-            const manifestUrl = URL.createObjectURL(manifestBlob);
-            
-            // Bước 3: Kích hoạt cài đặt
-            updateStatus('Mở trình cài đặt...', 2);
-            
-            // Tạo và kích hoạt iframe
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
-            document.body.appendChild(iframe);
-            
-            // Mở popup dự phòng
-            setTimeout(() => {
-                const popup = window.open(
-                    `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`,
-                    '_blank'
+            try {
+                // Tạo manifest URL
+                const manifestContent = createManifestPlist();
+                const manifestBlob = new Blob([manifestContent], { type: 'application/x-plist' });
+                const manifestUrl = URL.createObjectURL(manifestBlob);
+                
+                console.log('Manifest URL created:', manifestUrl);
+                
+                // Bước 2: Kích hoạt cài đặt
+                updateStatus('Mở trình cài đặt iOS...', 2);
+                
+                // Phương pháp 1: Dùng location.href (đơn giản nhất)
+                const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+                console.log('Install URL:', installUrl);
+                
+                // Hiển thị hướng dẫn trước
+                showPopup(
+                    '📲 Đang mở trình cài đặt iOS...\n\n' +
+                    'Nếu không thấy popup cài đặt:\n' +
+                    '1. Cho phép popup trong Safari Settings\n' +
+                    '2. Nhấn vào thanh địa chỉ và chọn "Mở"\n' +
+                    '3. Hoặc nhấn giữ liên kết dưới đây và chọn "Mở"',
+                    false
                 );
                 
-                if (popup) {
-                    // Đóng popup sau 2 giây
+                // Tạo link để người dùng nhấn nếu tự động thất bại
+                const manualLink = document.createElement('a');
+                manualLink.href = installUrl;
+                manualLink.textContent = 'Nhấn vào đây nếu không tự động chuyển';
+                manualLink.style.display = 'block';
+                manualLink.style.margin = '20px 0';
+                manualLink.style.padding = '15px';
+                manualLink.style.background = '#007AFF';
+                manualLink.style.color = 'white';
+                manualLink.style.borderRadius = '10px';
+                manualLink.style.textDecoration = 'none';
+                loadingContainer.appendChild(manualLink);
+                
+                // Thử chuyển hướng tự động
+                setTimeout(() => {
+                    window.location.href = installUrl;
+                }, 1500);
+                
+                // Phương pháp 2: Dùng iframe (dự phòng)
+                setTimeout(() => {
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = installUrl;
+                    document.body.appendChild(iframe);
+                    
                     setTimeout(() => {
-                        try { popup.close(); } catch(e) {}
-                    }, 2000);
-                }
-            }, 500);
-            
-            // Bước 4: Hoàn tất
-            updateStatus('Chờ xác nhận trên màn hình...', 3);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            
-            updateStatus('Cài đặt đã được kích hoạt!', 3);
-            
-            // Hướng dẫn tiếp theo
-            setTimeout(() => {
-                alert('Nếu không thấy trình cài đặt:\n1. Kiểm tra popup bị chặn\n2. Mở Safari Settings > Cho phép Popups\n3. Thử lại\n\nSau khi cài xong, vào Cài đặt > Chung > VPN & Quản lý thiết bị > Tin cậy nhà phát triển.');
-            }, 1000);
-            
-            // Dọn dẹp sau 10 giây
-            setTimeout(() => {
-                URL.revokeObjectURL(manifestUrl);
-                iframe.remove();
-            }, 10000);
+                        iframe.remove();
+                        URL.revokeObjectURL(manifestUrl);
+                    }, 5000);
+                }, 2000);
+                
+                // Bước 3: Hoàn tất
+                updateStatus('Chờ xác nhận cài đặt...', 3);
+                
+                // Hướng dẫn sau cài đặt
+                setTimeout(() => {
+                    showPopup(
+                        '✅ Cài đặt đã được kích hoạt!\n\n' +
+                        'Sau khi ứng dụng xuất hiện trên màn hình:\n' +
+                        '1. Vào Cài đặt > Chung\n' +
+                        '2. Chọn "VPN & Quản lý thiết bị"\n' +
+                        '3. Tìm và "Tin cậy" nhà phát triển\n\n' +
+                        'Nếu gặp lỗi "chứng chỉ không hợp lệ", chứng chỉ có thể đã hết hạn.',
+                        false
+                    );
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Lỗi cài đặt:', error);
+                updateStatus('Lỗi: ' + error.message, 0);
+                showPopup('❌ Lỗi khi cài đặt: ' + error.message, true);
+            }
         }
 
         // Sự kiện click
         installBtn.addEventListener('click', startInstallation);
         
-        // Tự động chạy nếu có tham số auto
-        if (window.location.search.includes('auto=1')) {
-            setTimeout(startInstallation, 1000);
-        }
+        // Hiển thị thông tin thiết bị khi trang load
+        window.addEventListener('load', () => {
+            console.log('=== THÔNG TIN THIẾT BỊ ===');
+            console.log('User Agent:', navigator.userAgent);
+            console.log('Platform:', navigator.platform);
+            console.log('Vendor:', navigator.vendor);
+            console.log('Max Touch Points:', navigator.maxTouchPoints);
+            console.log('isIOSDevice:', isIOSDevice());
+            console.log('=========================');
+            
+            // Hiển thị thông tin cho người dùng
+            const deviceInfo = isIOSDevice() ? 
+                '📱 Đã nhận diện thiết bị iOS/iPadOS' : 
+                '⚠️ Không phải thiết bị iOS';
+            
+            const infoEl = document.createElement('p');
+            infoEl.textContent = deviceInfo;
+            infoEl.style.fontSize = '12px';
+            infoEl.style.color = '#666';
+            infoEl.style.marginTop = '10px';
+            mainContainer.appendChild(infoEl);
+        });
     </script>
 </body>
 </html>
