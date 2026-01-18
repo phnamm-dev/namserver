@@ -3,286 +3,249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đang tải...</title>
+    <title>Cài đặt ESign</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
             text-align: center;
-            opacity: 0;
-            animation: fadeIn 0.3s ease forwards;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        
-        @keyframes fadeIn {
-            to { opacity: 1; }
-        }
-        
-        .loader {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top-color: #007AFF;
-            border-radius: 50%;
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #007AFF, #5856D6);
+            border-radius: 20px;
             margin: 0 auto 20px;
-            animation: spin 1s linear infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
         }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .status {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-        
-        .hidden {
-            display: none !important;
-        }
-        
-        #manualBtn {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
+        h1 { color: #1d1d1f; margin-bottom: 10px; }
+        p { color: #86868b; margin-bottom: 30px; }
+        .btn {
             background: #007AFF;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 16px;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 600;
             cursor: pointer;
-            z-index: 1000;
+            width: 100%;
+            transition: all 0.3s;
         }
+        .btn:hover { background: #0056CC; transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); }
+        .steps { text-align: left; margin-top: 30px; color: #666; font-size: 14px; }
+        .step { margin-bottom: 10px; padding-left: 20px; position: relative; }
+        .step:before { content: "✓"; position: absolute; left: 0; color: #007AFF; }
+        .hidden { display: none; }
+        .loading { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
-    <div class="loader">
-        <div class="spinner"></div>
-        <div class="status" id="status">Đang khởi tạo...</div>
+    <div class="container" id="mainContainer">
+        <div class="logo">📱</div>
+        <h1>Cài đặt ESign</h1>
+        <p>Ứng dụng đã được ký hợp lệ, sẵn sàng cài đặt trên iOS</p>
+        <button class="btn" id="installBtn">Cài đặt ngay</button>
+        
+        <div class="steps">
+            <div class="step">Ký chứng chỉ hợp lệ</div>
+            <div class="step">Cài đặt OTA trực tiếp</div>
+            <div class="step">Tin cậy nhà phát triển</div>
+        </div>
     </div>
-    
-    <button id="manualBtn" class="hidden">Cài đặt thủ công</button>
+
+    <div class="container hidden" id="loadingContainer">
+        <div class="logo loading">⏳</div>
+        <h1>Đang cài đặt...</h1>
+        <p id="statusText">Đang kết nối với máy chủ</p>
+        <div class="steps">
+            <div id="step1">✓ Đang tải ứng dụng...</div>
+            <div id="step2">Chờ xác nhận cài đặt...</div>
+            <div id="step3">Hoàn tất thiết lập...</div>
+        </div>
+    </div>
 
     <script>
-        // ========== CẤU HÌNH ==========
+        // CẤU HÌNH - QUAN TRỌNG!
         const CONFIG = {
-            // THAY ĐỔI 2 DÒNG NÀY THEO FILE CỦA BẠN
-            ipaUrl: 'https://github.com/phnamm-dev/server-resources/raw/refs/heads/main/file/namserver-ESign-signed.ipa', // Link đến file .ipa đã ký
-            bundleId: 'nya.asami.ksign', // Bundle ID của app (tìm trong Info.plist)
+            // URL file IPA - DÙNG RAW.GITHACK.COM TỐT HƠN
+            ipaUrl: 'https://rawcdn.githack.com/phnamm-dev/server-resources/refs/heads/main/file/namserver-ESign-signed.ipa',
             
-            // Tự động đóng trang sau khi cài (ms)
-            closeDelay: 3000,
+            // BUNDLE ID ĐÚNG từ file IPA
+            bundleId: 'nya.asami.ksign',
             
-            // Thời gian chờ tối đa (ms)
-            timeout: 10000
+            // Tên hiển thị
+            appName: 'ESign',
+            appVersion: '1.0'
         };
 
-        // ========== HÀM CHÍNH ==========
-        async function startInstallation() {
-            updateStatus('Đang kiểm tra thiết bị...');
+        // Các phần tử DOM
+        const mainContainer = document.getElementById('mainContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const installBtn = document.getElementById('installBtn');
+        const statusText = document.getElementById('statusText');
+        
+        // Cập nhật trạng thái
+        function updateStatus(text, step = 0) {
+            statusText.textContent = text;
             
-            // Chỉ chạy trên iOS
-            if (!isIOS()) {
-                updateStatus('Chỉ hỗ trợ iPhone/iPad');
-                showManualButton();
-                return;
-            }
-            
-            // Tạo manifest.plist động
-            updateStatus('Đang tạo gói cài đặt...');
-            const manifestUrl = await createDynamicManifest();
-            
-            if (!manifestUrl) {
-                updateStatus('Lỗi tạo manifest');
-                showManualButton();
-                return;
-            }
-            
-            // Kích hoạt cài đặt
-            updateStatus('Đang mở trình cài đặt...');
-            const success = await triggerInstall(manifestUrl);
-            
-            if (success) {
-                updateStatus('Đang chuyển hướng...');
-                setTimeout(() => {
-                    window.close(); // Đóng tab
-                    // Fallback nếu window.close không hoạt động
-                    setTimeout(() => {
-                        document.body.innerHTML = '<h3>Cài đặt thành công! Bạn có thể đóng trang này.</h3>';
-                    }, 500);
-                }, CONFIG.closeDelay);
-            } else {
-                updateStatus('Thất bại, thử cách thủ công');
-                showManualButton();
-            }
-        }
-
-        // ========== HÀM TIỆN ÍCH ==========
-        function isIOS() {
-            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        }
-
-        function updateStatus(text) {
-            const el = document.getElementById('status');
-            if (el) el.textContent = text;
-            console.log('[Status]', text);
-        }
-
-        function showManualButton() {
-            const btn = document.getElementById('manualBtn');
-            btn.classList.remove('hidden');
-            btn.onclick = () => {
-                const manifestUrl = generateManifestUrl();
-                window.location.href = `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
-            };
-        }
-
-        function createDynamicManifest() {
-            try {
-                // Tạo manifest.plist nội dung động
-                const manifestContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>items</key>
-    <array>
-        <dict>
-            <key>assets</key>
-            <array>
-                <dict>
-                    <key>kind</key>
-                    <string>software-package</string>
-                    <key>url</key>
-                    <string>${CONFIG.ipaUrl}</string>
-                </dict>
-            </array>
-            <key>metadata</key>
-            <dict>
-                <key>bundle-identifier</key>
-                <string>${CONFIG.bundleId}</string>
-                <key>bundle-version</key>
-                <string>1.0</string>
-                <key>kind</key>
-                <string>software</string>
-                <key>title</key>
-                <string>ESign</string>
-            </dict>
-        </dict>
-    </array>
-</dict>
-</plist>`;
-                
-                // Tạo Blob URL từ nội dung
-                const blob = new Blob([manifestContent], { type: 'application/xml' });
-                return URL.createObjectURL(blob);
-            } catch (error) {
-                console.error('Lỗi tạo manifest:', error);
-                return null;
-            }
-        }
-
-        function generateManifestUrl() {
-            // Tạo URL manifest trực tiếp (không cần host)
-            const manifestContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>items</key>
-    <array>
-        <dict>
-            <key>assets</key>
-            <array>
-                <dict>
-                    <key>kind</key>
-                    <string>software-package</string>
-                    <key>url</key>
-                    <string>${CONFIG.ipaUrl}</string>
-                </dict>
-            </array>
-            <key>metadata</key>
-            <dict>
-                <key>bundle-identifier</key>
-                <string>${CONFIG.bundleId}</string>
-                <key>bundle-version</key>
-                <string>1.0</string>
-                <key>kind</key>
-                <string>software</string>
-                <key>title</key>
-                <string>ESign</string>
-            </dict>
-        </dict>
-    </array>
-</dict>
-</plist>`;
-            
-            return `data:application/x-plist;base64,${btoa(manifestContent)}`;
-        }
-
-        async function triggerInstall(manifestUrl) {
-            return new Promise((resolve) => {
-                // Tạo iframe ẩn để kích hoạt cài đặt
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
-                
-                iframe.onload = () => {
-                    console.log('Iframe loaded');
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                        URL.revokeObjectURL(manifestUrl); // Dọn dẹp
-                        resolve(true);
-                    }, 1000);
-                };
-                
-                iframe.onerror = () => {
-                    console.error('Iframe error');
-                    document.body.removeChild(iframe);
-                    resolve(false);
-                };
-                
-                document.body.appendChild(iframe);
-                
-                // Fallback: Mở cửa sổ mới
-                setTimeout(() => {
-                    const popup = window.open(`itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`, '_blank');
-                    if (popup) {
-                        setTimeout(() => popup.close(), 3000);
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                }, 500);
+            // Cập nhật các bước
+            const steps = ['step1', 'step2', 'step3'];
+            steps.forEach((id, index) => {
+                const el = document.getElementById(id);
+                if (index < step) {
+                    el.innerHTML = '✓ ' + el.textContent.replace('✓ ', '');
+                    el.style.color = '#007AFF';
+                } else if (index === step) {
+                    el.innerHTML = '⏳ ' + el.textContent.replace(/[✓⏳] /, '');
+                    el.style.color = '#1d1d1f';
+                } else {
+                    el.innerHTML = el.textContent.replace(/[✓⏳] /, '');
+                    el.style.color = '#86868b';
+                }
             });
         }
 
-        // ========== KHỞI CHẠY ==========
-        document.addEventListener('DOMContentLoaded', () => {
-            // Bắt đầu sau 500ms để trang load xong
-            setTimeout(startInstallation, 500);
-            
-            // Timeout an toàn
-            setTimeout(() => {
-                updateStatus('Đang thử phương pháp thay thế...');
-                showManualButton();
-            }, CONFIG.timeout);
-        });
+        // Tạo manifest.plist đơn giản
+        function createManifestPlist() {
+            return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>assets</key>
+            <array>
+                <dict>
+                    <key>kind</key>
+                    <string>software-package</string>
+                    <key>url</key>
+                    <string>${CONFIG.ipaUrl}</string>
+                </dict>
+                <dict>
+                    <key>kind</key>
+                    <string>display-image</string>
+                    <key>url</key>
+                    <string>https://via.placeholder.com/120x120/007AFF/FFFFFF?text=ES</string>
+                </dict>
+            </array>
+            <key>metadata</key>
+            <dict>
+                <key>bundle-identifier</key>
+                <string>${CONFIG.bundleId}</string>
+                <key>bundle-version</key>
+                <string>${CONFIG.appVersion}</string>
+                <key>kind</key>
+                <string>software</string>
+                <key>title</key>
+                <string>${CONFIG.appName}</string>
+                <key>subtitle</key>
+                <string>Signed App</string>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>`;
+        }
 
-        // Ngăn chặn nhấn back
-        window.history.pushState(null, null, window.location.href);
-        window.onpopstate = function() {
-            window.history.go(1);
-        };
+        // Kích hoạt cài đặt
+        async function startInstallation() {
+            // Chuyển sang màn hình loading
+            mainContainer.classList.add('hidden');
+            loadingContainer.classList.remove('hidden');
+            
+            updateStatus('Đang kiểm tra thiết bị...', 0);
+            
+            // Kiểm tra iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (!isIOS) {
+                updateStatus('Vui lòng mở trên iPhone/iPad', 0);
+                setTimeout(() => {
+                    alert('Vui lòng mở trang này trên iPhone hoặc iPad để cài đặt.');
+                    window.location.href = 'https://support.apple.com/guide/iphone/install-apps-iph4d8d2a2d0/ios';
+                }, 2000);
+                return;
+            }
+            
+            // Bước 1: Tạo manifest
+            updateStatus('Đang tạo gói cài đặt...', 1);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Bước 2: Tạo manifest URL
+            const manifestContent = createManifestPlist();
+            const manifestBlob = new Blob([manifestContent], { type: 'application/x-plist' });
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            
+            // Bước 3: Kích hoạt cài đặt
+            updateStatus('Mở trình cài đặt...', 2);
+            
+            // Tạo và kích hoạt iframe
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+            document.body.appendChild(iframe);
+            
+            // Mở popup dự phòng
+            setTimeout(() => {
+                const popup = window.open(
+                    `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`,
+                    '_blank'
+                );
+                
+                if (popup) {
+                    // Đóng popup sau 2 giây
+                    setTimeout(() => {
+                        try { popup.close(); } catch(e) {}
+                    }, 2000);
+                }
+            }, 500);
+            
+            // Bước 4: Hoàn tất
+            updateStatus('Chờ xác nhận trên màn hình...', 3);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            updateStatus('Cài đặt đã được kích hoạt!', 3);
+            
+            // Hướng dẫn tiếp theo
+            setTimeout(() => {
+                alert('Nếu không thấy trình cài đặt:\n1. Kiểm tra popup bị chặn\n2. Mở Safari Settings > Cho phép Popups\n3. Thử lại\n\nSau khi cài xong, vào Cài đặt > Chung > VPN & Quản lý thiết bị > Tin cậy nhà phát triển.');
+            }, 1000);
+            
+            // Dọn dẹp sau 10 giây
+            setTimeout(() => {
+                URL.revokeObjectURL(manifestUrl);
+                iframe.remove();
+            }, 10000);
+        }
+
+        // Sự kiện click
+        installBtn.addEventListener('click', startInstallation);
+        
+        // Tự động chạy nếu có tham số auto
+        if (window.location.search.includes('auto=1')) {
+            setTimeout(startInstallation, 1000);
+        }
     </script>
 </body>
 </html>
